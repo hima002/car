@@ -433,7 +433,7 @@ private fun QuickActionsRow(
         Spacer(Modifier.width(6.dp))
         QuickActionButton("تقرير البيع", Icons.Default.MenuBook, onResaleReport, Modifier.weight(1f))
         Spacer(Modifier.width(6.dp))
-        QuickActionButton("أكواد OBD", Icons.Default.QrCodeScanner, onObdScanner, Modifier.weight(1f))
+        QuickActionButton("المساعد الذكي", Icons.Default.QrCodeScanner, onObdScanner, Modifier.weight(1f))
     }
 }
 

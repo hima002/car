@@ -36,10 +36,15 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Write .env from the GOOGLE_PLACES_API_KEY repository secret
+      - name: Write .env from repository secrets
+        # An empty value here generates invalid Java in BuildConfig (`= ;`), so fall back to a
+        # placeholder if a secret isn't configured yet rather than writing a blank value.
         env:
           PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
-        run: echo "PLACES_API_KEY=$PLACES_API_KEY" > .env
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          echo "PLACES_API_KEY=${PLACES_API_KEY:-MISSING}" > .env
+          echo "GEMINI_API_KEY=${GEMINI_API_KEY:-MISSING}" >> .env
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

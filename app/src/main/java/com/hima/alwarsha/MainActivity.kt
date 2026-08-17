@@ -43,7 +43,7 @@ import com.hima.alwarsha.service.DrivingTrackingService
 import com.hima.alwarsha.ui.screens.AddVehicleScreen
 import com.hima.alwarsha.ui.screens.DashboardScreen
 import com.hima.alwarsha.ui.screens.MaintenanceCatalogScreen
-import com.hima.alwarsha.ui.screens.ObdDictionaryScreen
+import com.hima.alwarsha.ui.screens.DiagnosticsScreen
 import com.hima.alwarsha.ui.screens.ResaleReportScreen
 import com.hima.alwarsha.ui.screens.ServiceLogsScreen
 import com.hima.alwarsha.ui.screens.SettingsScreen
@@ -237,7 +237,10 @@ private fun MainAppContent(
                     )
                 }
 
-                ScreenRoute.OBD_DICTIONARY -> ObdDictionaryScreen(onBack = { currentScreen = ScreenRoute.DASHBOARD })
+                ScreenRoute.OBD_DICTIONARY -> DiagnosticsScreen(
+                    carViewModel = viewModel,
+                    onBack = { currentScreen = ScreenRoute.DASHBOARD }
+                )
 
                 ScreenRoute.RESALE_REPORT -> ResaleReportScreen(viewModel = viewModel, onBack = { currentScreen = ScreenRoute.DASHBOARD })
             }

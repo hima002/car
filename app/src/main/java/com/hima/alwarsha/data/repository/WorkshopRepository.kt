@@ -20,7 +20,7 @@ class WorkshopRepository {
         radiusKm: Int = 50
     ): List<Workshop> {
         val apiKey = BuildConfig.PLACES_API_KEY
-        if (apiKey.isBlank()) return emptyList()
+        if (apiKey.isBlank() || apiKey == "MISSING") return emptyList()
 
         val response = PlacesApiClient.service.nearbySearch(
             location = "$userLat,$userLng",
