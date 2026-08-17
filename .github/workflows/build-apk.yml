@@ -42,10 +42,15 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: current
+          gradle-version: 8.13
 
       - name: Build debug APK
-        run: gradle assembleDebug --stacktrace
+        # kotlin.compiler.execution.strategy is forced to "in-process" in gradle.properties
+        # (needed locally to avoid a compile-daemon connection error). On CI that setting makes
+        # the Kotlin compiler share Gradle's own classloader, which collides with the Compose
+        # compiler plugin jar and crashes with an AbstractMethodError. Override to out-of-process
+        # here only, so the local dev workaround stays intact.
+        run: gradle assembleDebug --stacktrace -Pkotlin.compiler.execution.strategy=out-of-process
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
