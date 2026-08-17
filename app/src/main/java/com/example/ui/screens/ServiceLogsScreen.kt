@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.LocalThemeStyle
+import com.example.ui.theme.StatusGreen
 import com.example.viewmodel.CarViewModel
 import java.text.SimpleDateFormat
 import java.util.Date

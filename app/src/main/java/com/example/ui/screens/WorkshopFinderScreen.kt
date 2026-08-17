@@ -57,6 +57,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Workshop
+import com.example.ui.theme.AutoGold
+import com.example.ui.theme.AutoSurfaceDark
 import com.example.ui.theme.LocalThemeStyle
 import com.example.ui.theme.StatusGreen
 import com.example.viewmodel.CarViewModel
