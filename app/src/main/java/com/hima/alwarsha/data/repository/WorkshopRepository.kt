@@ -32,6 +32,13 @@ class WorkshopRepository {
             apiKey = apiKey
         )
 
+        // Nearby Search never uses an HTTP error code for API-level failures — it always
+        // returns 200 with a "status" field instead (REQUEST_DENIED, INVALID_REQUEST,
+        // OVER_QUERY_LIMIT...). Without checking it, a real denial silently looks like "0 results".
+        if (response.status != "OK" && response.status != "ZERO_RESULTS") {
+            throw IllegalStateException("Places API: ${response.status} — ${response.errorMessage ?: "بدون تفاصيل"}")
+        }
+
         return response.results
             .mapNotNull { it.toWorkshop(userLat, userLng) }
             .sortedWith(

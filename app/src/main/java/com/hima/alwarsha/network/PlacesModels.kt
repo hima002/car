@@ -6,7 +6,8 @@ import com.squareup.moshi.JsonClass
 @JsonClass(generateAdapter = true)
 data class NearbySearchResponse(
     @Json(name = "results") val results: List<PlaceResult> = emptyList(),
-    @Json(name = "status") val status: String = ""
+    @Json(name = "status") val status: String = "",
+    @Json(name = "error_message") val errorMessage: String? = null
 )
 
 @JsonClass(generateAdapter = true)

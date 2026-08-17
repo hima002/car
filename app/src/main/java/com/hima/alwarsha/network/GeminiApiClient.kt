@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 object GeminiApiClient {
 
-    const val MODEL = "gemini-2.5-flash"
+    const val MODEL = "gemini-3.6-flash"
 
     val service: GeminiApiService by lazy {
         val moshi = Moshi.Builder().build()
