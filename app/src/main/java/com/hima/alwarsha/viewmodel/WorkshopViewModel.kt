@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import retrofit2.HttpException
 
 data class WorkshopUiState(
     val isLoading: Boolean = false,
@@ -57,8 +58,13 @@ class WorkshopViewModel(application: Application) : AndroidViewModel(application
                     workshops = workshops,
                     errorMessageAr = if (workshops.isEmpty()) "مفيش ورش قريبة منك في نطاق 50 كم." else null
                 )
+            } catch (e: HttpException) {
+                // Surfacing the raw status/body temporarily (not a public product) so failures are
+                // diagnosable without needing device logcat access.
+                val body = e.response()?.errorBody()?.string()?.take(300)
+                _uiState.value = WorkshopUiState(errorMessageAr = "حصل خطأ (كود ${e.code()}) من Google Places: ${body ?: e.message()}")
             } catch (e: Exception) {
-                _uiState.value = WorkshopUiState(errorMessageAr = "حصل خطأ في الاتصال. جرّب تاني بعد شوية.")
+                _uiState.value = WorkshopUiState(errorMessageAr = e.message ?: "حصل خطأ في الاتصال: ${e::class.simpleName}")
             }
         }
     }

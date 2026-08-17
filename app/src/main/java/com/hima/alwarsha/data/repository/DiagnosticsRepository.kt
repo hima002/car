@@ -12,6 +12,7 @@ import com.hima.alwarsha.network.GeminiContent
 import com.hima.alwarsha.network.GeminiGenerateContentRequest
 import com.hima.alwarsha.network.GeminiGenerationConfig
 import com.hima.alwarsha.network.GeminiPart
+import retrofit2.HttpException
 import java.io.ByteArrayOutputStream
 
 class DiagnosticsRepository {
@@ -33,8 +34,13 @@ class DiagnosticsRepository {
         return try {
             val response = GeminiApiClient.service.generateContent(GeminiApiClient.MODEL, apiKey, request)
             response.text ?: "معنديش رد واضح على السؤال ده، جرّب تسأل بطريقة تانية أو ترفق صورة أوضح."
+        } catch (e: HttpException) {
+            // Surfacing the raw status/body temporarily (not a public product) so failures are
+            // diagnosable without needing device logcat access.
+            val body = e.response()?.errorBody()?.string()?.take(300)
+            "حصل خطأ (كود ${e.code()}) من Gemini: ${body ?: e.message()}"
         } catch (e: Exception) {
-            "حصل خطأ في الاتصال بالمساعد الذكي. جرّب تاني بعد شوية."
+            "حصل خطأ في الاتصال بالمساعد الذكي: ${e.message ?: e::class.simpleName}"
         }
     }
 
