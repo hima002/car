@@ -11,6 +11,7 @@ import com.example.data.entity.CarMaintenanceConfigEntity
 import com.example.data.entity.FuelLogEntity
 import com.example.data.entity.MaintenanceItemEntity
 import com.example.data.entity.ServiceLogEntity
+import com.example.data.entity.TripLogEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -43,6 +44,9 @@ interface CarDao {
 
     @Query("UPDATE cars SET currentOdometer = :newOdometer WHERE id = :carId")
     suspend fun updateCarOdometer(carId: Long, newOdometer: Int)
+
+    @Query("UPDATE cars SET currentOdometer = currentOdometer + :deltaKm WHERE id = :carId")
+    suspend fun incrementOdometer(carId: Long, deltaKm: Int)
 
     // Maintenance Items
     @Query("SELECT * FROM maintenance_items")
@@ -83,4 +87,16 @@ interface CarDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFuelLog(log: FuelLogEntity): Long
+
+    // Trip Logs (auto GPS tracking)
+    @Query(
+        """
+        INSERT INTO trip_logs (carId, dayEpoch, distanceKm) VALUES (:carId, :dayEpoch, :deltaKm)
+        ON CONFLICT(carId, dayEpoch) DO UPDATE SET distanceKm = distanceKm + :deltaKm
+        """
+    )
+    suspend fun upsertTripDistance(carId: Long, dayEpoch: Long, deltaKm: Double)
+
+    @Query("SELECT * FROM trip_logs WHERE carId = :carId AND dayEpoch >= :sinceEpoch ORDER BY dayEpoch DESC")
+    fun getTripLogsSince(carId: Long, sinceEpoch: Long): Flow<List<TripLogEntity>>
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.dao.CarDao
 import com.example.data.entity.CarEntity
@@ -11,6 +12,7 @@ import com.example.data.entity.CarMaintenanceConfigEntity
 import com.example.data.entity.FuelLogEntity
 import com.example.data.entity.MaintenanceItemEntity
 import com.example.data.entity.ServiceLogEntity
+import com.example.data.entity.TripLogEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,9 +23,10 @@ import kotlinx.coroutines.launch
         MaintenanceItemEntity::class,
         CarMaintenanceConfigEntity::class,
         ServiceLogEntity::class,
-        FuelLogEntity::class
+        FuelLogEntity::class,
+        TripLogEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +37,25 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `trip_logs` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `carId` INTEGER NOT NULL,
+                        `dayEpoch` INTEGER NOT NULL,
+                        `distanceKm` REAL NOT NULL,
+                        FOREIGN KEY(`carId`) REFERENCES `cars`(`id`) ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_trip_logs_carId_dayEpoch` ON `trip_logs` (`carId`, `dayEpoch`)"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -42,6 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "autokeep_database.db"
                 )
                     .addCallback(DatabaseCallback())
+                    .addMigrations(MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

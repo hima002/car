@@ -1,10 +1,21 @@
 package com.example
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
+import com.example.service.DrivingTrackingService
+import com.example.util.TrackingPreferences
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +49,7 @@ import com.example.ui.screens.ObdDictionaryScreen
 import com.example.ui.screens.ResaleReportScreen
 import com.example.ui.screens.ServiceLogsScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.TrackingSettingsScreen
 import com.example.ui.screens.ViscosityWizardScreen
 import com.example.ui.screens.WorkshopFinderScreen
 import androidx.compose.runtime.collectAsState
@@ -45,11 +57,80 @@ import com.example.ui.components.ThemeAndLanguageSelectorDialog
 import com.example.ui.theme.AppStrings
 import com.example.ui.theme.LocalThemeStyle
 import com.example.ui.theme.MyApplicationTheme
+import com.example.util.DayEpoch
 import com.example.viewmodel.CarViewModel
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: CarViewModel by viewModels()
+
+    private var onBackgroundLocationResult: (() -> Unit)? = null
+    private var onForegroundPermissionsResult: (() -> Unit)? = null
+
+    // ACCESS_BACKGROUND_LOCATION must be requested on its own, after foreground location is granted.
+    private val backgroundLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        // Whether granted or not, foreground-only tracking still works (just less reliable off-screen).
+        onBackgroundLocationResult?.invoke()
+    }
+
+    private val foregroundPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        onForegroundPermissionsResult?.invoke()
+    }
+
+    private fun hasPermission(permission: String) =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    /** Requests foreground location + activity recognition, then background location, then starts tracking. */
+    private fun startTrackingFlow() {
+        val foregroundPermissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            foregroundPermissions += Manifest.permission.ACTIVITY_RECOGNITION
+        }
+
+        onForegroundPermissionsResult = {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                !hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            ) {
+                onBackgroundLocationResult = { activateTracking() }
+                backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            } else {
+                activateTracking()
+            }
+        }
+        foregroundPermissionsLauncher.launch(foregroundPermissions.toTypedArray())
+    }
+
+    private fun activateTracking() {
+        if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) return
+        TrackingPreferences.setEnabled(this, true)
+        val intent = Intent(this, DrivingTrackingService::class.java)
+            .setAction(DrivingTrackingService.ACTION_START_TRACKING)
+        ContextCompat.startForegroundService(this, intent)
+    }
+
+    private fun stopTrackingFlow() {
+        TrackingPreferences.setEnabled(this, false)
+        val intent = Intent(this, DrivingTrackingService::class.java)
+            .setAction(DrivingTrackingService.ACTION_STOP_TRACKING)
+        ContextCompat.startForegroundService(this, intent)
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        if (powerManager.isIgnoringBatteryOptimizations(packageName)) return
+        val intent = Intent(
+            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            Uri.parse("package:$packageName")
+        )
+        startActivity(intent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +143,12 @@ class MainActivity : ComponentActivity() {
                 appTheme = currentTheme,
                 appLanguage = currentLanguage
             ) {
-                MainAppContent(viewModel = viewModel)
+                MainAppContent(
+                    viewModel = viewModel,
+                    isTrackingEnabled = TrackingPreferences.isEnabled(this@MainActivity),
+                    onToggleTracking = { enabled -> if (enabled) startTrackingFlow() else stopTrackingFlow() },
+                    onRequestBatteryOptimizationExemption = { requestBatteryOptimizationExemption() }
+                )
             }
         }
     }
@@ -77,12 +163,19 @@ enum class ScreenRoute {
     VISCOSITY_WIZARD,
     RESALE_REPORT,
     OBD_SCANNER,
-    ADD_VEHICLE
+    ADD_VEHICLE,
+    TRACKING_SETTINGS
 }
 
 @Composable
-fun MainAppContent(viewModel: CarViewModel) {
+fun MainAppContent(
+    viewModel: CarViewModel,
+    isTrackingEnabled: Boolean,
+    onToggleTracking: (Boolean) -> Unit,
+    onRequestBatteryOptimizationExemption: () -> Unit
+) {
     var currentScreen by remember { mutableStateOf(ScreenRoute.DASHBOARD) }
+    var trackingEnabledState by remember { mutableStateOf(isTrackingEnabled) }
 
     val currentTheme by viewModel.currentTheme.collectAsState()
     val currentLanguage by viewModel.currentLanguage.collectAsState()
@@ -193,7 +286,8 @@ fun MainAppContent(viewModel: CarViewModel) {
                         onNavigateToCatalog = { currentScreen = ScreenRoute.CATALOG },
                         onNavigateToResaleReport = { currentScreen = ScreenRoute.RESALE_REPORT },
                         onNavigateToObd = { currentScreen = ScreenRoute.OBD_SCANNER },
-                        onNavigateToAddVehicle = { currentScreen = ScreenRoute.ADD_VEHICLE }
+                        onNavigateToAddVehicle = { currentScreen = ScreenRoute.ADD_VEHICLE },
+                        onNavigateToTracking = { currentScreen = ScreenRoute.TRACKING_SETTINGS }
                     )
                 }
 
@@ -221,7 +315,27 @@ fun MainAppContent(viewModel: CarViewModel) {
                 ScreenRoute.SETTINGS -> {
                     SettingsScreen(
                         viewModel = viewModel,
-                        onBack = { currentScreen = ScreenRoute.DASHBOARD }
+                        onBack = { currentScreen = ScreenRoute.DASHBOARD },
+                        onNavigateToTracking = { currentScreen = ScreenRoute.TRACKING_SETTINGS }
+                    )
+                }
+
+                ScreenRoute.TRACKING_SETTINGS -> {
+                    val recentTripLogs by viewModel.recentTripLogs.collectAsState()
+                    val todayEpoch = DayEpoch.startOfDay()
+                    val todayKm = recentTripLogs.filter { it.dayEpoch == todayEpoch }.sumOf { it.distanceKm }
+                    val weekKm = recentTripLogs.sumOf { it.distanceKm }
+
+                    TrackingSettingsScreen(
+                        onBack = { currentScreen = ScreenRoute.SETTINGS },
+                        isTrackingEnabled = trackingEnabledState,
+                        onToggleTracking = { enabled ->
+                            trackingEnabledState = enabled
+                            onToggleTracking(enabled)
+                        },
+                        onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
+                        todayKm = todayKm,
+                        weekKm = weekKm
                     )
                 }
 

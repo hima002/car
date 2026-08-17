@@ -20,7 +20,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Settings
@@ -59,7 +61,8 @@ import com.example.viewmodel.CarViewModel
 @Composable
 fun SettingsScreen(
     viewModel: CarViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToTracking: () -> Unit
 ) {
     val currentTheme by viewModel.currentTheme.collectAsState()
     val currentLanguage by viewModel.currentLanguage.collectAsState()
@@ -111,6 +114,48 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item { Spacer(modifier = Modifier.height(4.dp)) }
+
+            // 0. AUTOMATIC DRIVING TRACKING ENTRY POINT
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToTracking() }
+                        .testTag("settings_tracking_entry"),
+                    shape = RoundedCornerShape(themeStyle.cardCornerRadius),
+                    colors = CardDefaults.cardColors(containerColor = themeStyle.cardBg),
+                    border = BorderStroke(themeStyle.cardBorderWidth, themeStyle.cardBorderColor)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.GpsFixed,
+                                contentDescription = null,
+                                tint = themeStyle.primaryColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isAr) "التتبع التلقائي للقيادة (GPS)" else "Automatic Driving Tracking (GPS)",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = themeStyle.textPrimary
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = themeStyle.textSecondary
+                        )
+                    }
+                }
+            }
 
             // 1. LIVE PREVIEW CARD OF SELECTED THEME
             item {

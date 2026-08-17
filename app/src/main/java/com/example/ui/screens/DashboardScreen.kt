@@ -30,6 +30,9 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.EvStation
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Palette
@@ -96,7 +99,9 @@ import com.example.ui.theme.EditorialVehicleCardBg
 import com.example.ui.theme.StatusGreen
 import com.example.ui.theme.StatusRed
 import com.example.ui.theme.StatusYellow
+import com.example.util.DayEpoch
 import com.example.viewmodel.CarViewModel
+import kotlin.math.roundToInt
 
 @Composable
 fun DashboardScreen(
@@ -105,12 +110,14 @@ fun DashboardScreen(
     onNavigateToCatalog: () -> Unit,
     onNavigateToResaleReport: () -> Unit,
     onNavigateToObd: () -> Unit,
-    onNavigateToAddVehicle: () -> Unit
+    onNavigateToAddVehicle: () -> Unit,
+    onNavigateToTracking: () -> Unit
 ) {
     val selectedCar by viewModel.selectedCar.collectAsState()
     val allCars by viewModel.allCars.collectAsState()
     val healthSummary by viewModel.carHealthSummary.collectAsState()
     val maintenanceCatalog by viewModel.maintenanceCatalog.collectAsState()
+    val recentTripLogs by viewModel.recentTripLogs.collectAsState()
 
     val showOdometerDialog by viewModel.showUpdateOdometerDialog.collectAsState()
     val showLogServiceDialog by viewModel.showLogServiceDialog.collectAsState()
@@ -309,7 +316,30 @@ fun DashboardScreen(
                 }
             }
 
-            // 3. QUICK ACTIONS ROW
+            // 3. NEXT ACTION HERO CARD ("إيه المطلوب دلوقتي؟") + collapsible rest of alerts
+            healthSummary?.urgentAlerts?.let { alerts ->
+                val topAlert = alerts.firstOrNull()
+                if (topAlert != null) {
+                    item {
+                        NextActionHeroCard(
+                            alert = topAlert,
+                            onMarkDoneNow = { viewModel.recordServiceLogQuick(topAlert.itemId) },
+                            onAddDetails = { viewModel.openLogServiceDialog(topAlert.itemId) }
+                        )
+                    }
+                }
+                val remainingAlerts = alerts.drop(1)
+                if (remainingAlerts.isNotEmpty()) {
+                    item {
+                        CollapsibleAlertsSection(
+                            alerts = remainingAlerts,
+                            onMarkDone = { itemId -> viewModel.openLogServiceDialog(itemId) }
+                        )
+                    }
+                }
+            }
+
+            // 4. QUICK ACTIONS ROW
             item {
                 QuickActionsRow(
                     onLogService = { viewModel.openLogServiceDialog() },
@@ -320,24 +350,23 @@ fun DashboardScreen(
                 )
             }
 
-            // 4. SMART VISCOSITY RECOMMENDATION BANNER
+            // 5. SMART VISCOSITY RECOMMENDATION BANNER
             item {
                 ViscosityRecommendationCard(
                     car = car,
+                    healthSummary = healthSummary,
                     onOpenWizard = onNavigateToViscosityWizard
                 )
             }
 
-            // 5. URGENT ALERTS SECTION
-            healthSummary?.urgentAlerts?.let { alerts ->
-                if (alerts.isNotEmpty()) {
-                    item {
-                        UrgentAlertsSection(
-                            alerts = alerts,
-                            onMarkDone = { itemId -> viewModel.openLogServiceDialog(itemId) }
-                        )
-                    }
-                }
+            // 5b. AUTOMATIC TRACKING SUMMARY
+            item {
+                val todayEpoch = DayEpoch.startOfDay()
+                val todayKm = recentTripLogs.filter { it.dayEpoch == todayEpoch }.sumOf { it.distanceKm }
+                TrackingSummaryCard(
+                    todayKm = todayKm,
+                    onClick = onNavigateToTracking
+                )
             }
 
             // 6. EXECUTIVE MAINTENANCE SUMMARY CARD
@@ -710,6 +739,7 @@ fun QuickActionButton(
 @Composable
 fun ViscosityRecommendationCard(
     car: CarEntity,
+    healthSummary: CarHealthSummary?,
     onOpenWizard: () -> Unit
 ) {
     Card(
@@ -754,6 +784,12 @@ fun ViscosityRecommendationCard(
                     color = EditorialTextPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = viscosityReasonText(car, healthSummary),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = EditorialTextSecondary
+                )
             }
             Icon(
                 imageVector = Icons.Default.ArrowForward,
@@ -764,75 +800,234 @@ fun ViscosityRecommendationCard(
     }
 }
 
+private fun viscosityReasonText(car: CarEntity, healthSummary: CarHealthSummary?): String {
+    val drivingPart = if (car.isSevereDriving) "قيادتك مصنّفة شاقة" else "قيادتك قياسية"
+    val oilPart = when (car.oilLevelDropStatus) {
+        "SLIGHT_DROP" -> "مع نقص بسيط بمستوى الزيت"
+        "HEAVY_DROP" -> "مع نقص واضح بمستوى الزيت"
+        else -> "بدون أي نقص ملحوظ بالزيت"
+    }
+    return "السبب: $drivingPart، $oilPart، عند عداد ${car.currentOdometer} كم."
+}
+
+/** Single most urgent maintenance item, front and center, with a one-tap "done now" action. */
 @Composable
-fun UrgentAlertsSection(
+fun NextActionHeroCard(
+    alert: CarMaintenanceItemStatus,
+    onMarkDoneNow: () -> Unit,
+    onAddDetails: () -> Unit
+) {
+    val accentColor = if (alert.statusLevel == StatusLevel.RED) StatusRed else StatusYellow
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("next_action_hero_card"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = accentColor.copy(alpha = 0.10f)),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, accentColor.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "إيه المطلوب دلوقتي؟",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = accentColor
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = alert.itemNameAr,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = EditorialTextPrimary
+            )
+            Text(
+                text = if (alert.remainingKm <= 0) {
+                    "تجاوزت حد الصيانة بـ ${kotlin.math.abs(alert.remainingKm)} كم!"
+                } else {
+                    "متبقي ${alert.remainingKm} كم / حوالي ${alert.remainingDays} يوم"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = accentColor,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onMarkDoneNow,
+                    colors = ButtonDefaults.buttonColors(containerColor = EditorialPrimary),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.weight(1f).testTag("hero_mark_done_now_button")
+                ) {
+                    Text("تم الآن ✅", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                OutlinedButton(
+                    onClick = onAddDetails,
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.weight(1f).testTag("hero_add_details_button")
+                ) {
+                    Text("إضافة تفاصيل", color = EditorialTextPrimary, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+/** Everything besides the single top alert, folded away by default to keep the dashboard uncluttered. */
+@Composable
+fun CollapsibleAlertsSection(
     alerts: List<CarMaintenanceItemStatus>,
     onMarkDone: (Long) -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                tint = StatusRed,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .testTag("collapsible_alerts_toggle"),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = "تنبيهات عاجلة وحرجة (${alerts.size})",
-                style = MaterialTheme.typography.titleMedium,
+                text = "باقي التنبيهات (${alerts.size})",
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = StatusRed
+                color = EditorialTextSecondary
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = EditorialTextSecondary
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
 
-        alerts.forEach { alert ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (alert.statusLevel == StatusLevel.RED) StatusRed.copy(alpha = 0.08f) else StatusYellow.copy(alpha = 0.08f)
-                ),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (alert.statusLevel == StatusLevel.RED) StatusRed.copy(alpha = 0.4f) else StatusYellow.copy(alpha = 0.4f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = alert.itemNameAr,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = EditorialTextPrimary
-                        )
-                        Text(
-                            text = if (alert.remainingKm <= 0) "تجاوزت حد الصيانة بـ ${kotlin.math.abs(alert.remainingKm)} كم!" else "متبقي ${alert.remainingKm} كم / حوالي ${alert.remainingDays} يوم",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (alert.statusLevel == StatusLevel.RED) StatusRed else StatusYellow,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Button(
-                        onClick = { onMarkDone(alert.itemId) },
-                        colors = ButtonDefaults.buttonColors(containerColor = EditorialPrimary),
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier.testTag("mark_done_button_${alert.itemId}")
-                    ) {
-                        Text("تم التغيير الان", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.padding(top = 8.dp)) {
+                alerts.forEach { alert ->
+                    AlertItemCard(alert = alert, onMarkDone = onMarkDone)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AlertItemCard(
+    alert: CarMaintenanceItemStatus,
+    onMarkDone: (Long) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (alert.statusLevel == StatusLevel.RED) StatusRed.copy(alpha = 0.08f) else StatusYellow.copy(alpha = 0.08f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (alert.statusLevel == StatusLevel.RED) StatusRed.copy(alpha = 0.4f) else StatusYellow.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = alert.itemNameAr,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = EditorialTextPrimary
+                )
+                Text(
+                    text = if (alert.remainingKm <= 0) "تجاوزت حد الصيانة بـ ${kotlin.math.abs(alert.remainingKm)} كم!" else "متبقي ${alert.remainingKm} كم / حوالي ${alert.remainingDays} يوم",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (alert.statusLevel == StatusLevel.RED) StatusRed else StatusYellow,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Button(
+                onClick = { onMarkDone(alert.itemId) },
+                colors = ButtonDefaults.buttonColors(containerColor = EditorialPrimary),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier.testTag("mark_done_button_${alert.itemId}")
+            ) {
+                Text("تم التغيير الان", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+fun TrackingSummaryCard(
+    todayKm: Double,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .testTag("tracking_summary_card"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = EditorialCardBg),
+        border = androidx.compose.foundation.BorderStroke(1.dp, EditorialCardBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(EditorialPrimary.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.GpsFixed,
+                    contentDescription = null,
+                    tint = EditorialPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "التتبع التلقائي للقيادة",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = EditorialTextPrimary
+                )
+                Text(
+                    text = "${todayKm.roundToInt()} كم اليوم — اضغط للإعدادات",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EditorialTextSecondary
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ArrowForward,
+                contentDescription = null,
+                tint = EditorialTextSecondary
+            )
         }
     }
 }

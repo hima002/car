@@ -7,17 +7,20 @@ import com.example.data.entity.CarMaintenanceConfigEntity
 import com.example.data.entity.FuelLogEntity
 import com.example.data.entity.MaintenanceItemEntity
 import com.example.data.entity.ServiceLogEntity
+import com.example.data.entity.TripLogEntity
 import com.example.data.model.CarHealthSummary
 import com.example.data.model.CarMaintenanceItemStatus
 import com.example.data.model.CarOemSpec
 import com.example.data.model.ObdCode
 import com.example.data.model.StatusLevel
 import com.example.data.model.Workshop
+import com.example.util.DayEpoch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 class CarRepository(private val carDao: CarDao) {
 
@@ -33,13 +36,47 @@ class CarRepository(private val carDao: CarDao) {
         return carDao.getFuelLogsForCar(carId)
     }
 
+    fun getTripLogsForCar(carId: Long, sinceDaysAgo: Int = 30): Flow<List<TripLogEntity>> {
+        return carDao.getTripLogsSince(carId, DayEpoch.daysAgo(sinceDaysAgo))
+    }
+
+    /**
+     * Real measured daily driving average from GPS trip logs (last 30 days),
+     * falling back to the manually-set [CarEntity.dailyAvgKm] until at least
+     * 3 days of tracked data exist. Averaged over calendar days elapsed (not
+     * just driving days) so weekends/idle days correctly pull the rate down.
+     */
+    fun getDailyAvgKmFlow(carId: Long): Flow<Int?> {
+        return carDao.getTripLogsSince(carId, DayEpoch.daysAgo(30)).map { logs ->
+            if (logs.size < 3) {
+                null
+            } else {
+                val totalKm = logs.sumOf { it.distanceKm }
+                val earliestDay = logs.minOf { it.dayEpoch }
+                val daysSpan = max(
+                    logs.size,
+                    ((DayEpoch.startOfDay() - earliestDay) / 86_400_000L).toInt() + 1
+                )
+                max(1, (totalKm / daysSpan).roundToInt())
+            }
+        }
+    }
+
+    suspend fun recordAutoDrivingDistance(carId: Long, deltaKm: Double) {
+        if (deltaKm <= 0.0) return
+        carDao.incrementOdometer(carId, deltaKm.roundToInt())
+        carDao.upsertTripDistance(carId, DayEpoch.startOfDay(), deltaKm)
+    }
+
     fun getCarHealthSummary(carId: Long): Flow<CarHealthSummary?> {
         return combine(
             carDao.getAllCars(),
             carDao.getAllMaintenanceItems(),
-            carDao.getConfigsForCar(carId)
-        ) { cars, items, configs ->
+            carDao.getConfigsForCar(carId),
+            getDailyAvgKmFlow(carId)
+        ) { cars, items, configs, autoDailyAvgKm ->
             val car = cars.find { it.id == carId } ?: return@combine null
+            val dailyAvgKm = autoDailyAvgKm ?: max(1, car.dailyAvgKm)
             val itemMap = items.associateBy { it.id }
 
             val itemStatuses = mutableListOf<CarMaintenanceItemStatus>()
@@ -57,8 +94,7 @@ class CarRepository(private val carDao: CarDao) {
                 val nextKm = lastKm + effectiveIntervalKm
                 val remainingKm = nextKm - car.currentOdometer
 
-                val dailyAvgKm = max(1, car.dailyAvgKm)
-                val remainingDays = max(0, remainingKm / dailyAvgKm)
+                val remainingDays = max(0, remainingKm / max(1, dailyAvgKm))
 
                 val kmUsed = car.currentOdometer - lastKm
                 val progressPercent = min(1.0f, max(0.0f, kmUsed.toFloat() / max(1, effectiveIntervalKm).toFloat()))

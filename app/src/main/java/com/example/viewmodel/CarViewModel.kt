@@ -7,6 +7,7 @@ import com.example.data.database.AppDatabase
 import com.example.data.entity.CarEntity
 import com.example.data.entity.FuelLogEntity
 import com.example.data.entity.MaintenanceItemEntity
+import com.example.data.entity.TripLogEntity
 import android.content.Context
 import com.example.data.entity.ServiceLogEntity
 import com.example.data.model.CarHealthSummary
@@ -101,6 +102,14 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
     val fuelLogs: StateFlow<List<FuelLogEntity>> = selectedCar
         .flatMapLatest { car ->
             if (car != null) repository.getFuelLogsForCar(car.id)
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val recentTripLogs: StateFlow<List<TripLogEntity>> = selectedCar
+        .flatMapLatest { car ->
+            if (car != null) repository.getTripLogsForCar(car.id, sinceDaysAgo = 7)
             else flowOf(emptyList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -230,6 +239,23 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
                 notes = notes
             )
             closeLogServiceDialog()
+        }
+    }
+
+    /** One-tap logging for the dashboard hero card: uses the current odometer, no extra details. */
+    fun recordServiceLogQuick(itemId: Long) {
+        val car = selectedCar.value ?: return
+        viewModelScope.launch {
+            repository.recordServiceLog(
+                carId = car.id,
+                itemId = itemId,
+                performedOdometer = car.currentOdometer,
+                cost = 0.0,
+                partBrand = "",
+                viscosityUsed = "",
+                workshopName = "",
+                notes = ""
+            )
         }
     }
 

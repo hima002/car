@@ -22,12 +22,32 @@ object NotificationHelper {
     private const val CHANNEL_NAME = "تنبيهات صيانات السيارة AutoKeep"
     private const val CHANNEL_DESC = "تنبيهات المواعيد والعدادات الحرجة لصيانة سيارتك"
 
+    const val TRACKING_CHANNEL_ID = "autokeep_tracking_channel"
+    private const val TRACKING_CHANNEL_NAME = "تتبع القيادة التلقائي"
+    private const val TRACKING_CHANNEL_DESC = "إشعار دائم أثناء تشغيل التتبع التلقائي للكيلومترات"
+
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance).apply {
                 description = CHANNEL_DESC
                 enableVibration(true)
+            }
+            val notificationManager: NotificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    fun createTrackingChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                TRACKING_CHANNEL_ID,
+                TRACKING_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = TRACKING_CHANNEL_DESC
+                setShowBadge(false)
             }
             val notificationManager: NotificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
