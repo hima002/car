@@ -1,0 +1,6 @@
+{
+  "name": "AutoKeep (كراجي)",
+  "description": "تطبيق كراجي (AutoKeep) المساعد الشخصي الذكي لصيانة السيارات واختيار لزوجة الزيت وحاسبة التكلفة وتقرير بيع السيارة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
