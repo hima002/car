@@ -27,14 +27,19 @@ jobs:
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
-      - name: Generate debug keystore
+      - name: Generate debug keystore (only if not already committed)
+        # debug.keystore is committed to the repo so its SHA-1 stays stable across builds —
+        # Google API key "Android app" restrictions (SHA-1 + package name) need a fixed signature,
+        # and a fresh keystore every run breaks that match. Only regenerate if it's ever missing.
         run: |
-          keytool -genkeypair -v \
-            -keystore debug.keystore \
-            -storepass android -keypass android \
-            -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android -keypass android \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Write .env from repository secrets
         # An empty value here generates invalid Java in BuildConfig (`= ;`), so fall back to a

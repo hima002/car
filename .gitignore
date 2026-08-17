@@ -15,4 +15,6 @@
 .cxx
 local.properties
 .env
-debug.keystore
+# debug.keystore is intentionally committed (not gitignored) — see build.gradle.kts comment.
+# It must stay stable across builds so Google API key "Android app" restrictions (SHA-1 + package)
+# keep matching; regenerating it on every CI run was breaking Places/Gemini API calls.

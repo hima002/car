@@ -28,6 +28,10 @@ android {
       keyPassword = System.getenv("KEY_PASSWORD")
     }
     create("debugConfig") {
+      // debug.keystore is committed to the repo (not gitignored) on purpose: its SHA-1 must stay
+      // stable across builds so Google Cloud API key "Android app" restrictions (SHA-1 + package
+      // name) keep matching. A debug keystore has no real secrecy value (well-known password),
+      // so committing it is standard practice — do not add it back to .gitignore.
       storeFile = file("${rootDir}/debug.keystore")
       storePassword = "android"
       keyAlias = "androiddebugkey"
