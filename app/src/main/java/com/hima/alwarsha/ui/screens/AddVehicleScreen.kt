@@ -112,22 +112,22 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
                 }
             }
 
-            if (models.isNotEmpty()) {
-                item {
-                    SimpleDropdownField(
-                        label = "الموديل",
-                        selectedText = model,
-                        options = models,
-                        onOptionSelected = { model = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            } else {
+            item {
+                SimpleDropdownField(
+                    label = "الموديل",
+                    selectedText = model,
+                    options = models,
+                    onOptionSelected = { model = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            if (model == CarCatalog.OTHER_MODEL) {
                 item {
                     OutlinedTextField(
                         value = customModel,
                         onValueChange = { customModel = it },
-                        label = { Text("الموديل") },
+                        label = { Text("اكتب اسم الموديل") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -208,7 +208,7 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
                 Button(
                     onClick = {
                         val finalBrand = if (brand == CarCatalog.OTHER_BRAND) customBrand else brand
-                        val finalModel = if (models.isEmpty()) customModel else model
+                        val finalModel = if (model == CarCatalog.OTHER_MODEL) customModel else model
                         val odo = currentOdometer.toIntOrNull() ?: 0
                         val selectedIds = selectedItems.filterValues { it }.keys
                         val baselines = itemBaselines.mapNotNull { (id, text) -> text.toIntOrNull()?.let { id to it } }.toMap()
