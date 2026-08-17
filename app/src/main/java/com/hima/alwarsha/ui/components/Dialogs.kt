@@ -17,9 +17,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,34 +71,19 @@ fun LogServiceDialog(
     var brandText by remember { mutableStateOf("") }
     var workshopText by remember { mutableStateOf("") }
     var notesText by remember { mutableStateOf("") }
-    var itemMenuExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("تسجيل صيانة") },
         text = {
             Column {
-                ExposedDropdownMenuBox(expanded = itemMenuExpanded, onExpandedChange = { itemMenuExpanded = it }) {
-                    OutlinedTextField(
-                        value = selectedItem?.itemNameAr ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("البند") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = itemMenuExpanded) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    androidx.compose.material3.ExposedDropdownMenu(
-                        expanded = itemMenuExpanded,
-                        onDismissRequest = { itemMenuExpanded = false }
-                    ) {
-                        maintenanceItems.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item.itemNameAr) },
-                                onClick = { selectedItem = item; itemMenuExpanded = false }
-                            )
-                        }
-                    }
-                }
+                SimpleDropdownField(
+                    label = "البند",
+                    selectedText = selectedItem?.itemNameAr ?: "",
+                    options = maintenanceItems.map { it.itemNameAr },
+                    onOptionSelected = { name -> selectedItem = maintenanceItems.find { it.itemNameAr == name } },
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = odometerText,

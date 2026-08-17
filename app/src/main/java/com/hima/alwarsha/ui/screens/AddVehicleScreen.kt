@@ -18,10 +18,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hima.alwarsha.data.database.DefaultMaintenanceCatalog
 import com.hima.alwarsha.data.model.CarCatalog
+import com.hima.alwarsha.ui.components.SimpleDropdownField
 import com.hima.alwarsha.ui.theme.LocalThemeStyle
 import com.hima.alwarsha.viewmodel.CarViewModel
 
@@ -60,16 +57,13 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
 
     var brand by remember { mutableStateOf(CarCatalog.brands.first().brand) }
     var customBrand by remember { mutableStateOf("") }
-    var brandMenuExpanded by remember { mutableStateOf(false) }
 
     val models = remember(brand) { CarCatalog.modelsFor(brand) }
     var model by remember(brand) { mutableStateOf(models.firstOrNull() ?: "") }
     var customModel by remember { mutableStateOf("") }
-    var modelMenuExpanded by remember { mutableStateOf(false) }
 
     var year by remember { mutableStateOf("") }
     var transmissionType by remember { mutableStateOf(transmissionOptions.first().first) }
-    var transmissionMenuExpanded by remember { mutableStateOf(false) }
     var engineCc by remember { mutableStateOf("") }
     var currentOdometer by remember { mutableStateOf("") }
     var isSevereDriving by remember { mutableStateOf(false) }
@@ -98,21 +92,13 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
             item { Spacer(Modifier.height(4.dp)) }
 
             item {
-                ExposedDropdownMenuBox(expanded = brandMenuExpanded, onExpandedChange = { brandMenuExpanded = it }) {
-                    OutlinedTextField(
-                        value = brand,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("العلامة التجارية") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandMenuExpanded) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(expanded = brandMenuExpanded, onDismissRequest = { brandMenuExpanded = false }) {
-                        CarCatalog.brands.forEach { b ->
-                            DropdownMenuItem(text = { Text(b.brand) }, onClick = { brand = b.brand; brandMenuExpanded = false })
-                        }
-                    }
-                }
+                SimpleDropdownField(
+                    label = "العلامة التجارية",
+                    selectedText = brand,
+                    options = CarCatalog.brands.map { it.brand },
+                    onOptionSelected = { brand = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             if (brand == CarCatalog.OTHER_BRAND) {
@@ -128,21 +114,13 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
 
             if (models.isNotEmpty()) {
                 item {
-                    ExposedDropdownMenuBox(expanded = modelMenuExpanded, onExpandedChange = { modelMenuExpanded = it }) {
-                        OutlinedTextField(
-                            value = model,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("الموديل") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenuExpanded) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(expanded = modelMenuExpanded, onDismissRequest = { modelMenuExpanded = false }) {
-                            models.forEach { m ->
-                                DropdownMenuItem(text = { Text(m) }, onClick = { model = m; modelMenuExpanded = false })
-                            }
-                        }
-                    }
+                    SimpleDropdownField(
+                        label = "الموديل",
+                        selectedText = model,
+                        options = models,
+                        onOptionSelected = { model = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             } else {
                 item {
@@ -165,21 +143,13 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
             }
 
             item {
-                ExposedDropdownMenuBox(expanded = transmissionMenuExpanded, onExpandedChange = { transmissionMenuExpanded = it }) {
-                    OutlinedTextField(
-                        value = transmissionOptions.first { it.first == transmissionType }.second,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("نوع الفتيس") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = transmissionMenuExpanded) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(expanded = transmissionMenuExpanded, onDismissRequest = { transmissionMenuExpanded = false }) {
-                        transmissionOptions.forEach { (code, label) ->
-                            DropdownMenuItem(text = { Text(label) }, onClick = { transmissionType = code; transmissionMenuExpanded = false })
-                        }
-                    }
-                }
+                SimpleDropdownField(
+                    label = "نوع الفتيس",
+                    selectedText = transmissionOptions.first { it.first == transmissionType }.second,
+                    options = transmissionOptions.map { it.second },
+                    onOptionSelected = { label -> transmissionType = transmissionOptions.first { it.second == label }.first },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             item {
