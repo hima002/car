@@ -14,6 +14,7 @@ import com.hima.alwarsha.data.model.StatusLevel
 import com.hima.alwarsha.util.DayEpoch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlin.math.max
 import kotlin.math.min
@@ -67,6 +68,9 @@ class CarRepository(private val carDao: CarDao) {
         }
         return item.defaultKmInterval
     }
+
+    /** One-shot snapshot of [getCarHealthSummary], for callers outside Compose (e.g. the tracking service). */
+    suspend fun getCarHealthSummarySnapshot(carId: Long): CarHealthSummary? = getCarHealthSummary(carId).first()
 
     fun getCarHealthSummary(carId: Long): Flow<CarHealthSummary?> {
         return combine(

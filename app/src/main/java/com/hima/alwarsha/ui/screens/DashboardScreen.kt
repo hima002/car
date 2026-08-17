@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,6 +107,10 @@ fun DashboardScreen(
         return
     }
     val car = selectedCar!!
+
+    LaunchedEffect(healthSummary?.healthScore) {
+        if (healthSummary != null) viewModel.checkNotificationsNow(context)
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(themeStyle.canvasBg)) {
         LazyColumn(

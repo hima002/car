@@ -165,9 +165,12 @@ class DrivingTrackingService : Service() {
         val distanceToPersist = accumulatedKm
         accumulatedKm = 0.0
         serviceScope.launch {
-            val carId = database.carDao().getSelectedCar().first()?.id ?: return@launch
-            repository.recordAutoDrivingDistance(carId, distanceToPersist)
+            val car = database.carDao().getSelectedCar().first() ?: return@launch
+            repository.recordAutoDrivingDistance(car.id, distanceToPersist)
             TrackingPreferences.setLastUpdateEpoch(applicationContext, System.currentTimeMillis())
+
+            val summary = repository.getCarHealthSummarySnapshot(car.id)
+            NotificationHelper.checkAndNotifyMaintenance(applicationContext, summary, "${car.brand} ${car.model}")
         }
     }
 
