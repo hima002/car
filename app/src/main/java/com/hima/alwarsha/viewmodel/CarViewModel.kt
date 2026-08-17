@@ -12,6 +12,7 @@ import com.hima.alwarsha.data.entity.ServiceLogEntity
 import com.hima.alwarsha.data.entity.TripLogEntity
 import com.hima.alwarsha.data.model.CarHealthSummary
 import com.hima.alwarsha.data.repository.CarRepository
+import com.hima.alwarsha.data.repository.ViscosityRecommendation
 import com.hima.alwarsha.util.NotificationHelper
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -110,9 +111,9 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.toggleSevereDriving(car.id, isSevere) }
     }
 
-    fun applyViscosityDecision(oilDropStatus: String, chosenViscosity: String) {
+    fun applyViscosityDecision(oilDropStatus: String, recommendation: ViscosityRecommendation) {
         val car = selectedCar.value ?: return
-        viewModelScope.launch { repository.updateViscosityDecision(car.id, oilDropStatus, chosenViscosity) }
+        viewModelScope.launch { repository.updateViscosityDecision(car.id, oilDropStatus, recommendation) }
     }
 
     fun recordServiceLog(itemId: Long, performedOdometer: Int, cost: Double, partBrand: String, workshopName: String, notes: String) {

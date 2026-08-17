@@ -89,7 +89,7 @@ fun ViscosityWizardScreen(viewModel: CarViewModel, onBack: () -> Unit) {
                     Column(Modifier.padding(14.dp)) {
                         Text(label, fontWeight = FontWeight.Bold, color = themeStyle.textPrimary)
                         Spacer(Modifier.height(4.dp))
-                        Text("التوصية: $recommendation", style = MaterialTheme.typography.bodySmall, color = themeStyle.textSecondary)
+                        Text("التوصية: ${recommendation.label}", style = MaterialTheme.typography.bodySmall, color = themeStyle.textSecondary)
                     }
                 }
             }

@@ -15,6 +15,7 @@ data class CarEntity(
     val dailyAvgKm: Int = 35,
     val isSevereDriving: Boolean = false,
     val recommendedViscosity: String = "5W-30 تخليقي بالكامل",
+    val oilType: String = "FULL_SYNTHETIC", // FULL_SYNTHETIC, SEMI_SYNTHETIC, HIGH_MILEAGE — drives the oil-change interval
     val oilLevelDropStatus: String = "NO_DROP", // NO_DROP, SLIGHT_DROP, HEAVY_DROP
     val isSelected: Boolean = false,
     val createdAtEpoch: Long = System.currentTimeMillis()

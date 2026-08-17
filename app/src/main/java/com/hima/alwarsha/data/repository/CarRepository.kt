@@ -58,10 +58,9 @@ class CarRepository(private val carDao: CarDao) {
     }
 
     /**
-     * Transmission-fluid and engine-oil intervals aren't a single fixed default — gearbox type
-     * changes the fluid interval, and high-mileage engines need shorter oil intervals to protect
-     * worn seals/rings (same tiering as the original viscosity table: <100k normal, 100k-200k
-     * shorter, >200k shortest).
+     * Transmission-fluid interval depends on gearbox type, and the engine-oil interval depends on
+     * the actual oil type in use (real change intervals track oil chemistry, not odometer bands —
+     * see [OilType]) — neither is a single fixed default.
      */
     private fun effectiveIntervalKm(car: CarEntity, item: MaintenanceItemEntity, config: CarMaintenanceConfigEntity): Int {
         config.customKmInterval?.let { return it }
@@ -72,11 +71,7 @@ class CarRepository(private val carDao: CarDao) {
             }
         }
         if (item.id == DefaultMaintenanceCatalog.ENGINE_OIL_ITEM_ID) {
-            return when {
-                car.currentOdometer > 200_000 -> 5_000
-                car.currentOdometer > 100_000 -> 7_000
-                else -> item.defaultKmInterval
-            }
+            return runCatching { OilType.valueOf(car.oilType) }.getOrDefault(OilType.FULL_SYNTHETIC).intervalKm
         }
         return item.defaultKmInterval
     }
@@ -180,6 +175,7 @@ class CarRepository(private val carDao: CarDao) {
         selectedItemIds: Set<Long>,
         itemBaselines: Map<Long, Int>
     ): Long {
+        val recommendation = ViscosityEngine.calculate(currentOdometer, "NO_DROP")
         val newCar = CarEntity(
             brand = brand,
             model = model,
@@ -187,7 +183,8 @@ class CarRepository(private val carDao: CarDao) {
             transmissionType = transmissionType,
             engineCc = engineCc,
             currentOdometer = currentOdometer,
-            recommendedViscosity = calculateViscosityRecommendation(currentOdometer, "NO_DROP"),
+            recommendedViscosity = recommendation.label,
+            oilType = recommendation.oilType.name,
             isSevereDriving = isSevereDriving,
             isSelected = true
         )
@@ -216,9 +213,15 @@ class CarRepository(private val carDao: CarDao) {
         carDao.updateCarOdometer(carId, newOdometer)
     }
 
-    suspend fun updateViscosityDecision(carId: Long, oilDropStatus: String, chosenViscosity: String) {
+    suspend fun updateViscosityDecision(carId: Long, oilDropStatus: String, recommendation: ViscosityRecommendation) {
         val car = carDao.getCarById(carId) ?: return
-        carDao.updateCar(car.copy(oilLevelDropStatus = oilDropStatus, recommendedViscosity = chosenViscosity))
+        carDao.updateCar(
+            car.copy(
+                oilLevelDropStatus = oilDropStatus,
+                recommendedViscosity = recommendation.label,
+                oilType = recommendation.oilType.name
+            )
+        )
     }
 
     /** Lets the user override a single item's interval for this car (null clears the override). */
@@ -308,6 +311,4 @@ class CarRepository(private val carDao: CarDao) {
         )
     }
 
-    fun calculateViscosityRecommendation(currentOdometer: Int, oilLevelDropStatus: String): String =
-        ViscosityEngine.calculate(currentOdometer, oilLevelDropStatus)
 }
