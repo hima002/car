@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "AutoKeep"
+rootProject.name = "AlWarsha"
 
 include(":app")

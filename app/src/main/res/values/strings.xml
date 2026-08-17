@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">AutoKeep (كراجي)</string>
-    <string name="tracking_notification_title">كراجي بيتتبع رحلتك</string>
+    <string name="app_name">الورشة</string>
+    <string name="tracking_notification_title">الورشة بتتبع رحلتك</string>
     <string name="tracking_notification_text">التتبع التلقائي شغال لحساب الكيلومترات المقطوعة بدقة</string>
 </resources>
