@@ -120,6 +120,38 @@ fun LogServiceDialog(
 }
 
 @Composable
+fun EditIntervalDialog(
+    itemNameAr: String,
+    currentIntervalKm: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int?) -> Unit
+) {
+    var text by remember { mutableStateOf(currentIntervalKm.toString()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("تعديل فترة: $itemNameAr") },
+        text = {
+            Column {
+                Text("كل كام كيلومتر تحب تتكرر الصيانة دي؟", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.filter(Char::isDigit) },
+                    label = { Text("الفترة (كم)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(text.toIntOrNull()) }) { Text("حفظ") }
+        },
+        dismissButton = {
+            TextButton(onClick = { onConfirm(null) }) { Text("إعادة للافتراضي") }
+        }
+    )
+}
+
+@Composable
 fun LogFuelDialog(
     currentOdometer: Int,
     onDismiss: () -> Unit,

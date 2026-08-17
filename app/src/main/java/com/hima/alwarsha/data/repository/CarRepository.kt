@@ -57,13 +57,25 @@ class CarRepository(private val carDao: CarDao) {
         carDao.upsertTripDistance(carId, DayEpoch.startOfDay(), deltaKm)
     }
 
-    /** Transmission-fluid interval depends on gearbox type, not a single fixed default. */
+    /**
+     * Transmission-fluid and engine-oil intervals aren't a single fixed default — gearbox type
+     * changes the fluid interval, and high-mileage engines need shorter oil intervals to protect
+     * worn seals/rings (same tiering as the original viscosity table: <100k normal, 100k-200k
+     * shorter, >200k shortest).
+     */
     private fun effectiveIntervalKm(car: CarEntity, item: MaintenanceItemEntity, config: CarMaintenanceConfigEntity): Int {
         config.customKmInterval?.let { return it }
         if (item.id == DefaultMaintenanceCatalog.TRANSMISSION_FLUID_ITEM_ID) {
             return when (car.transmissionType) {
                 "CVT", "DCT_DRY", "DCT_WET" -> 40_000
                 else -> 60_000
+            }
+        }
+        if (item.id == DefaultMaintenanceCatalog.ENGINE_OIL_ITEM_ID) {
+            return when {
+                car.currentOdometer > 200_000 -> 5_000
+                car.currentOdometer > 100_000 -> 7_000
+                else -> item.defaultKmInterval
             }
         }
         return item.defaultKmInterval
@@ -207,6 +219,12 @@ class CarRepository(private val carDao: CarDao) {
     suspend fun updateViscosityDecision(carId: Long, oilDropStatus: String, chosenViscosity: String) {
         val car = carDao.getCarById(carId) ?: return
         carDao.updateCar(car.copy(oilLevelDropStatus = oilDropStatus, recommendedViscosity = chosenViscosity))
+    }
+
+    /** Lets the user override a single item's interval for this car (null clears the override). */
+    suspend fun updateCustomInterval(carId: Long, itemId: Long, customKmInterval: Int?) {
+        val existing = carDao.getConfig(carId, itemId) ?: return
+        carDao.insertConfig(existing.copy(customKmInterval = customKmInterval))
     }
 
     suspend fun toggleSevereDriving(carId: Long, isSevere: Boolean) {

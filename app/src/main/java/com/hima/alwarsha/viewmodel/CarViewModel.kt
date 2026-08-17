@@ -100,6 +100,11 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
         NotificationHelper.checkAndNotifyMaintenance(context, carHealthSummary.value, "${car.brand} ${car.model}")
     }
 
+    fun updateCustomInterval(itemId: Long, customKmInterval: Int?) {
+        val car = selectedCar.value ?: return
+        viewModelScope.launch { repository.updateCustomInterval(car.id, itemId, customKmInterval) }
+    }
+
     fun toggleSevereDriving(isSevere: Boolean) {
         val car = selectedCar.value ?: return
         viewModelScope.launch { repository.toggleSevereDriving(car.id, isSevere) }

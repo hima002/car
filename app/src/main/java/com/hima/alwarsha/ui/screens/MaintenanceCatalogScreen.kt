@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.hima.alwarsha.data.database.DefaultMaintenanceCatalog
 import com.hima.alwarsha.data.model.CarMaintenanceItemStatus
 import com.hima.alwarsha.data.model.StatusLevel
+import com.hima.alwarsha.ui.components.EditIntervalDialog
 import com.hima.alwarsha.ui.theme.LocalThemeStyle
 import com.hima.alwarsha.ui.theme.StatusGreen
 import com.hima.alwarsha.ui.theme.StatusRed
@@ -68,6 +70,7 @@ fun MaintenanceCatalogScreen(viewModel: CarViewModel, onBack: () -> Unit) {
     val themeStyle = LocalThemeStyle.current
     val healthSummary by viewModel.carHealthSummary.collectAsState()
     var selectedTab by remember { mutableStateOf("ALL") }
+    var editingItem by remember { mutableStateOf<CarMaintenanceItemStatus?>(null) }
 
     Scaffold(
         topBar = {
@@ -107,16 +110,32 @@ fun MaintenanceCatalogScreen(viewModel: CarViewModel, onBack: () -> Unit) {
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filtered) { status ->
-                    MaintenanceItemCard(status = status, onLogService = { viewModel.openLogServiceDialog(status.itemId) })
+                    MaintenanceItemCard(
+                        status = status,
+                        onLogService = { viewModel.openLogServiceDialog(status.itemId) },
+                        onEditInterval = { editingItem = status }
+                    )
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }
+
+    editingItem?.let { status ->
+        EditIntervalDialog(
+            itemNameAr = status.itemNameAr,
+            currentIntervalKm = status.nextDueOdometer - status.lastChangeOdometer,
+            onDismiss = { editingItem = null },
+            onConfirm = { newInterval ->
+                viewModel.updateCustomInterval(status.itemId, newInterval)
+                editingItem = null
+            }
+        )
+    }
 }
 
 @Composable
-private fun MaintenanceItemCard(status: CarMaintenanceItemStatus, onLogService: () -> Unit) {
+private fun MaintenanceItemCard(status: CarMaintenanceItemStatus, onLogService: () -> Unit, onEditInterval: () -> Unit) {
     val themeStyle = LocalThemeStyle.current
     val statusColor = when (status.statusLevel) {
         StatusLevel.GREEN -> StatusGreen
@@ -137,10 +156,15 @@ private fun MaintenanceItemCard(status: CarMaintenanceItemStatus, onLogService: 
                     Spacer(Modifier.width(8.dp))
                     Text(status.itemNameAr, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = themeStyle.textPrimary)
                 }
-                Text(
-                    if (status.remainingKm <= 0) "منتهي!" else "متبقي ${status.remainingKm} كم",
-                    style = MaterialTheme.typography.labelLarge, color = statusColor, fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (status.remainingKm <= 0) "منتهي!" else "متبقي ${status.remainingKm} كم",
+                        style = MaterialTheme.typography.labelLarge, color = statusColor, fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onEditInterval, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "تعديل الفترة", tint = themeStyle.textSecondary, modifier = Modifier.size(16.dp))
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(
