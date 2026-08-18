@@ -4,9 +4,33 @@ package com.hima.alwarsha.data.model
  *  [modelsFor] always appends an [OTHER_MODEL] free-text fallback for anything missing here. */
 data class CarBrandModels(val brand: String, val models: List<String>)
 
+/**
+ * One factory-offered engine/transmission combination for a specific model, e.g. the standard
+ * naturally-aspirated engine vs. an optional turbo trim. Only added for models whose real specs
+ * have been verified — see [CarCatalog.modelEngineSpecs]. Never guessed or invented: a model with
+ * no verified entry here falls back to manual engine/transmission selection in the UI instead of
+ * silently showing wrong data.
+ */
+data class CarEngineOption(
+    val label: String,
+    val transmissionType: String, // CVT, DCT_DRY, DCT_WET, TORQUE_CONVERTER, MANUAL — see AddVehicleScreen's transmissionOptions labels
+    val isTurbo: Boolean
+)
+
 object CarCatalog {
     const val OTHER_BRAND = "أخرى"
     const val OTHER_MODEL = "أخرى (موديل مش موجود)"
+
+    /**
+     * Verified engine/transmission specs keyed by "brand|model". Deliberately empty until real,
+     * source-checked data is entered for a given model — an unverified guess here would be worse
+     * than no data at all, since the UI treats a present entry as ground truth and stops asking
+     * the user to confirm it manually.
+     */
+    private val modelEngineSpecs: Map<String, List<CarEngineOption>> = mapOf()
+
+    fun engineOptionsFor(brand: String, model: String): List<CarEngineOption> =
+        modelEngineSpecs["$brand|$model"] ?: emptyList()
 
     val brands: List<CarBrandModels> = listOf(
         CarBrandModels("تويوتا", listOf("كورولا", "كامري", "ياريس", "راف 4", "فورتشنر", "هايلوكس", "لاند كروزر", "أفانزا", "كورولا كروس", "برادو", "يارس كروس", "هايس")),

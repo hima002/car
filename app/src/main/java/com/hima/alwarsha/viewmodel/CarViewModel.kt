@@ -144,6 +144,7 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
         year: Int,
         transmissionType: String,
         engineCc: String,
+        engineVariant: String = "",
         currentOdometer: Int,
         isSevereDriving: Boolean,
         selectedItemIds: Set<Long>,
@@ -151,8 +152,9 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             repository.addNewVehicle(
-                brand, model, year, transmissionType, engineCc, currentOdometer,
-                isSevereDriving, selectedItemIds, itemBaselines
+                brand = brand, model = model, year = year, transmissionType = transmissionType,
+                engineCc = engineCc, engineVariant = engineVariant, currentOdometer = currentOdometer,
+                isSevereDriving = isSevereDriving, selectedItemIds = selectedItemIds, itemBaselines = itemBaselines
             )
         }
     }

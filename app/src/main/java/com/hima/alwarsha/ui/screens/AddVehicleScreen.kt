@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hima.alwarsha.data.database.DefaultMaintenanceCatalog
 import com.hima.alwarsha.data.model.CarCatalog
+import com.hima.alwarsha.data.model.CarEngineOption
 import com.hima.alwarsha.ui.components.SimpleDropdownField
 import com.hima.alwarsha.ui.theme.LocalThemeStyle
 import com.hima.alwarsha.viewmodel.CarViewModel
@@ -67,6 +69,18 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
     var engineCc by remember { mutableStateOf("") }
     var currentOdometer by remember { mutableStateOf("") }
     var isSevereDriving by remember { mutableStateOf(false) }
+
+    // Verified engine/transmission specs for this exact brand+model, if we have any on file.
+    // Empty for anything not yet verified — those cars keep the manual transmission dropdown below.
+    val engineOptions = remember(brand, model) { CarCatalog.engineOptionsFor(brand, model) }
+    var selectedEngineOption by remember(engineOptions) { mutableStateOf<CarEngineOption?>(null) }
+    LaunchedEffect(engineOptions) {
+        val autoOption = engineOptions.singleOrNull()
+        if (autoOption != null) {
+            selectedEngineOption = autoOption
+            transmissionType = autoOption.transmissionType
+        }
+    }
 
     val selectedItems = remember { mutableStateMapOf<Long, Boolean>().apply { DefaultMaintenanceCatalog.items.forEach { put(it.id, true) } } }
     val itemBaselines = remember { mutableStateMapOf<Long, String>() }
@@ -142,14 +156,36 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
                 )
             }
 
-            item {
-                SimpleDropdownField(
-                    label = "نوع الفتيس",
-                    selectedText = transmissionOptions.first { it.first == transmissionType }.second,
-                    options = transmissionOptions.map { it.second },
-                    onOptionSelected = { label -> transmissionType = transmissionOptions.first { it.second == label }.first },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            when {
+                engineOptions.size > 1 -> item {
+                    SimpleDropdownField(
+                        label = "نوع المحرك والفتيس",
+                        selectedText = selectedEngineOption?.label ?: "",
+                        options = engineOptions.map { it.label },
+                        onOptionSelected = { label ->
+                            val option = engineOptions.first { it.label == label }
+                            selectedEngineOption = option
+                            transmissionType = option.transmissionType
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                engineOptions.size == 1 -> item {
+                    Text(
+                        "المحرك والفتيس (محدد تلقائيًا حسب الموديل): ${selectedEngineOption?.label ?: ""}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = themeStyle.textSecondary
+                    )
+                }
+                else -> item {
+                    SimpleDropdownField(
+                        label = "نوع الفتيس",
+                        selectedText = transmissionOptions.first { it.first == transmissionType }.second,
+                        options = transmissionOptions.map { it.second },
+                        onOptionSelected = { label -> transmissionType = transmissionOptions.first { it.second == label }.first },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             item {
@@ -218,6 +254,7 @@ fun AddVehicleScreen(viewModel: CarViewModel, onBack: () -> Unit) {
                             year = year.toIntOrNull() ?: 0,
                             transmissionType = transmissionType,
                             engineCc = engineCc,
+                            engineVariant = selectedEngineOption?.label ?: "",
                             currentOdometer = odo,
                             isSevereDriving = isSevereDriving,
                             selectedItemIds = selectedIds,

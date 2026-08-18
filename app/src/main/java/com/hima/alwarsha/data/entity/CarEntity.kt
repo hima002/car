@@ -11,6 +11,7 @@ data class CarEntity(
     val year: Int,
     val transmissionType: String, // CVT, DCT_DRY, DCT_WET, TORQUE_CONVERTER, MANUAL
     val engineCc: String = "",
+    val engineVariant: String = "", // e.g. "1.6L تيربو" — set automatically when CarCatalog has a verified spec for this model, blank otherwise
     val currentOdometer: Int,
     val dailyAvgKm: Int = 35,
     val isSevereDriving: Boolean = false,
