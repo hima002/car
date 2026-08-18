@@ -8,6 +8,7 @@ import com.hima.alwarsha.data.entity.FuelLogEntity
 import com.hima.alwarsha.data.entity.MaintenanceItemEntity
 import com.hima.alwarsha.data.entity.ServiceLogEntity
 import com.hima.alwarsha.data.entity.TripLogEntity
+import com.hima.alwarsha.data.model.BackupData
 import com.hima.alwarsha.data.model.CarHealthSummary
 import com.hima.alwarsha.data.model.CarMaintenanceItemStatus
 import com.hima.alwarsha.data.model.StatusLevel
@@ -230,6 +231,34 @@ class CarRepository(private val carDao: CarDao) {
     suspend fun updateCustomInterval(carId: Long, itemId: Long, customKmInterval: Int?) {
         val existing = carDao.getConfig(carId, itemId) ?: return
         carDao.insertConfig(existing.copy(customKmInterval = customKmInterval))
+    }
+
+    /** Snapshot of every table for a manual backup file the user saves wherever they choose. */
+    suspend fun exportBackup(): BackupData = BackupData(
+        exportedAtEpoch = System.currentTimeMillis(),
+        cars = carDao.getAllCarsOnce(),
+        maintenanceItems = carDao.getAllMaintenanceItemsOnce(),
+        configs = carDao.getAllConfigsOnce(),
+        serviceLogs = carDao.getAllServiceLogsOnce(),
+        fuelLogs = carDao.getAllFuelLogsOnce(),
+        tripLogs = carDao.getAllTripLogsOnce()
+    )
+
+    /**
+     * Wipes the current database and replaces it with the backup's contents. Deleting cars/items
+     * first cascades away any dependent configs/logs (FK onDelete=CASCADE), so what follows is a
+     * clean insert with no leftover/duplicate rows from before the restore.
+     */
+    suspend fun importBackup(data: BackupData) {
+        carDao.deleteAllCars()
+        carDao.deleteAllMaintenanceItems()
+
+        carDao.insertMaintenanceItems(data.maintenanceItems)
+        carDao.insertCars(data.cars)
+        carDao.insertConfigs(data.configs)
+        carDao.insertServiceLogs(data.serviceLogs)
+        carDao.insertFuelLogs(data.fuelLogs)
+        carDao.insertTripLogs(data.tripLogs)
     }
 
     suspend fun toggleSevereDriving(carId: Long, isSevere: Boolean) {

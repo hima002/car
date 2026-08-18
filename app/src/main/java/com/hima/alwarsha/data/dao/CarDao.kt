@@ -92,4 +92,42 @@ interface CarDao {
 
     @Query("SELECT * FROM trip_logs WHERE carId = :carId AND dayEpoch >= :sinceEpoch ORDER BY dayEpoch DESC")
     fun getTripLogsSince(carId: Long, sinceEpoch: Long): Flow<List<TripLogEntity>>
+
+    // Full-database snapshot for backup/restore (export/import), independent of the selected car.
+    @Query("SELECT * FROM cars")
+    suspend fun getAllCarsOnce(): List<CarEntity>
+
+    @Query("SELECT * FROM maintenance_items")
+    suspend fun getAllMaintenanceItemsOnce(): List<MaintenanceItemEntity>
+
+    @Query("SELECT * FROM car_maintenance_configs")
+    suspend fun getAllConfigsOnce(): List<CarMaintenanceConfigEntity>
+
+    @Query("SELECT * FROM service_logs")
+    suspend fun getAllServiceLogsOnce(): List<ServiceLogEntity>
+
+    @Query("SELECT * FROM fuel_logs")
+    suspend fun getAllFuelLogsOnce(): List<FuelLogEntity>
+
+    @Query("SELECT * FROM trip_logs")
+    suspend fun getAllTripLogsOnce(): List<TripLogEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCars(cars: List<CarEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertServiceLogs(logs: List<ServiceLogEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFuelLogs(logs: List<FuelLogEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTripLogs(logs: List<TripLogEntity>)
+
+    // Deleting cars/maintenance items cascades to their dependent configs/logs (see FK onDelete=CASCADE).
+    @Query("DELETE FROM cars")
+    suspend fun deleteAllCars()
+
+    @Query("DELETE FROM maintenance_items")
+    suspend fun deleteAllMaintenanceItems()
 }

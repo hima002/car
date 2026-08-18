@@ -208,7 +208,7 @@ private fun MainAppContent(
 
                 ScreenRoute.SERVICE_LOGS -> ServiceLogsScreen(viewModel = viewModel, onBack = { currentScreen = ScreenRoute.DASHBOARD })
 
-                ScreenRoute.SETTINGS -> SettingsScreen(onNavigateToTracking = { currentScreen = ScreenRoute.TRACKING_SETTINGS })
+                ScreenRoute.SETTINGS -> SettingsScreen(viewModel = viewModel, onNavigateToTracking = { currentScreen = ScreenRoute.TRACKING_SETTINGS })
 
                 ScreenRoute.VISCOSITY_WIZARD -> ViscosityWizardScreen(viewModel = viewModel, onBack = { currentScreen = ScreenRoute.DASHBOARD })
 

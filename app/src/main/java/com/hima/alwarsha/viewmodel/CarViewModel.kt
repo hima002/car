@@ -10,10 +10,13 @@ import com.hima.alwarsha.data.entity.FuelLogEntity
 import com.hima.alwarsha.data.entity.MaintenanceItemEntity
 import com.hima.alwarsha.data.entity.ServiceLogEntity
 import com.hima.alwarsha.data.entity.TripLogEntity
+import com.hima.alwarsha.data.model.BackupData
 import com.hima.alwarsha.data.model.CarHealthSummary
 import com.hima.alwarsha.data.repository.CarRepository
 import com.hima.alwarsha.data.repository.ViscosityRecommendation
 import com.hima.alwarsha.util.NotificationHelper
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -163,6 +166,30 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
         val car = selectedCar.value ?: return
         viewModelScope.launch {
             repository.addCustomMaintenanceItem(car.id, titleAr, category, kmInterval, monthInterval, isCritical, car.currentOdometer)
+        }
+    }
+
+    private val backupMoshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val backupAdapter = backupMoshi.adapter(BackupData::class.java)
+
+    /** Serializes the full local database to a JSON string for the caller to write anywhere (e.g. via the system file picker). */
+    fun exportBackupJson(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val json = backupAdapter.toJson(repository.exportBackup())
+            onResult(json)
+        }
+    }
+
+    /** Restores from a previously exported backup JSON string. Replaces all current data. */
+    fun importBackupJson(json: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val data = runCatching { backupAdapter.fromJson(json) }.getOrNull()
+            if (data == null) {
+                onResult(false)
+                return@launch
+            }
+            repository.importBackup(data)
+            onResult(true)
         }
     }
 }
