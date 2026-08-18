@@ -28,12 +28,14 @@ class DiagnosticsRepository {
         val request = GeminiGenerateContentRequest(
             systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = systemPrompt(car)))),
             contents = history.map { it.toGeminiContent() },
-            generationConfig = GeminiGenerationConfig(temperature = 0.4, maxOutputTokens = 1024)
+            generationConfig = GeminiGenerationConfig(temperature = 0.4, maxOutputTokens = 2048)
         )
 
         return try {
             val response = GeminiApiClient.service.generateContent(GeminiApiClient.MODEL, apiKey, request)
-            response.text ?: "معنديش رد واضح على السؤال ده، جرّب تسأل بطريقة تانية أو ترفق صورة أوضح."
+            val text = response.text ?: "معنديش رد واضح على السؤال ده، جرّب تسأل بطريقة تانية أو ترفق صورة أوضح."
+            val wasTruncated = response.candidates?.firstOrNull()?.finishReason == "MAX_TOKENS"
+            if (wasTruncated) "$text\n\n(الرد اتقطع لطوله — اكتب \"كمل\" لو عايز الباقي)" else text
         } catch (e: HttpException) {
             // Surfacing the raw status/body temporarily (not a public product) so failures are
             // diagnosable without needing device logcat access.
@@ -58,7 +60,9 @@ class DiagnosticsRepository {
             "بدل ما تدّعي يقين مش موجود. " +
             "مهم جدًا: جاوب بنص عادي (plain text) بدون أي رموز تنسيق ماركداون خالص — من غير نجمتين ** " +
             "للخط العريض، من غير علامات # للعناوين، من غير خطوط تحتية _نص_. لو عايز تعمل قائمة نقاط استخدم " +
-            "شرطة - أو رقم عادي وسطر جديد فقط، لأن الواجهة بتعرض النص كما هو من غير أي تنسيق."
+            "شرطة - أو رقم عادي وسطر جديد فقط، لأن الواجهة بتعرض النص كما هو من غير أي تنسيق. " +
+            "خلّي إجابتك مختصرة ومركّزة قدر الإمكان (من غير حشو) عشان تتقرا بسهولة على شاشة الموبايل، " +
+            "وكمّل كل فكرة تبدأها بالكامل بدل ما توقف في نص الكلام."
     }
 
     private fun ChatMessage.toGeminiContent(): GeminiContent {
