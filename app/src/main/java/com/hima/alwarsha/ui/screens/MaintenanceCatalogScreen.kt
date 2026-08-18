@@ -51,6 +51,7 @@ import com.hima.alwarsha.data.database.DefaultMaintenanceCatalog
 import com.hima.alwarsha.data.model.CarMaintenanceItemStatus
 import com.hima.alwarsha.data.model.StatusLevel
 import com.hima.alwarsha.ui.components.EditIntervalDialog
+import com.hima.alwarsha.ui.components.LogServiceDialog
 import com.hima.alwarsha.ui.theme.LocalThemeStyle
 import com.hima.alwarsha.ui.theme.StatusGreen
 import com.hima.alwarsha.ui.theme.StatusRed
@@ -69,6 +70,10 @@ private val categories = listOf(
 fun MaintenanceCatalogScreen(viewModel: CarViewModel, onBack: () -> Unit) {
     val themeStyle = LocalThemeStyle.current
     val healthSummary by viewModel.carHealthSummary.collectAsState()
+    val car by viewModel.selectedCar.collectAsState()
+    val maintenanceCatalog by viewModel.maintenanceCatalog.collectAsState()
+    val showLogServiceDialog by viewModel.showLogServiceDialog.collectAsState()
+    val preselectedItemId by viewModel.selectedItemIdForLog.collectAsState()
     var selectedTab by remember { mutableStateOf("ALL") }
     var editingItem by remember { mutableStateOf<CarMaintenanceItemStatus?>(null) }
 
@@ -129,6 +134,18 @@ fun MaintenanceCatalogScreen(viewModel: CarViewModel, onBack: () -> Unit) {
             onConfirm = { newInterval ->
                 viewModel.updateCustomInterval(status.itemId, newInterval)
                 editingItem = null
+            }
+        )
+    }
+
+    if (showLogServiceDialog && car != null) {
+        LogServiceDialog(
+            currentOdometer = car!!.currentOdometer,
+            maintenanceItems = maintenanceCatalog,
+            preselectedItemId = preselectedItemId,
+            onDismiss = { viewModel.closeLogServiceDialog() },
+            onConfirm = { itemId, odo, cost, brand, workshop, notes ->
+                viewModel.recordServiceLog(itemId, odo, cost, brand, workshop, notes)
             }
         )
     }
