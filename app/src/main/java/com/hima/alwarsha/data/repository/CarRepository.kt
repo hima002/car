@@ -52,10 +52,16 @@ class CarRepository(private val carDao: CarDao) {
         }
     }
 
-    suspend fun recordAutoDrivingDistance(carId: Long, deltaKm: Double) {
-        if (deltaKm <= 0.0) return
-        carDao.incrementOdometer(carId, deltaKm.roundToInt())
-        carDao.upsertTripDistance(carId, DayEpoch.startOfDay(), deltaKm)
+    /**
+     * [odometerWholeKm] is the whole-km part of the accumulated distance after carrying fractional
+     * remainders across flushes (see [DrivingTrackingService]) — each flush persists only ~0.3-0.5km,
+     * so rounding that delta independently every time would truncate almost every flush to zero.
+     * [tripKm] keeps the precise fractional value for daily trip stats.
+     */
+    suspend fun recordAutoDrivingDistance(carId: Long, odometerWholeKm: Int, tripKm: Double) {
+        if (tripKm <= 0.0) return
+        if (odometerWholeKm > 0) carDao.incrementOdometer(carId, odometerWholeKm)
+        carDao.upsertTripDistance(carId, DayEpoch.startOfDay(), tripKm)
     }
 
     /**

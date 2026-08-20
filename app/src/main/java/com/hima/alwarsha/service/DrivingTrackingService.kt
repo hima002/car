@@ -166,7 +166,14 @@ class DrivingTrackingService : Service() {
         accumulatedKm = 0.0
         serviceScope.launch {
             val car = database.carDao().getSelectedCar().first() ?: return@launch
-            repository.recordAutoDrivingDistance(car.id, distanceToPersist)
+
+            // Carry the fractional remainder across flushes: each flush is only ~0.3-0.5km, so
+            // rounding it independently every time would truncate almost every flush to zero.
+            val carriedTotal = TrackingPreferences.getOdometerCarryKm(applicationContext) + distanceToPersist
+            val wholeKm = carriedTotal.toInt()
+            TrackingPreferences.setOdometerCarryKm(applicationContext, (carriedTotal - wholeKm).toFloat())
+
+            repository.recordAutoDrivingDistance(car.id, wholeKm, distanceToPersist)
             TrackingPreferences.setLastUpdateEpoch(applicationContext, System.currentTimeMillis())
 
             val summary = repository.getCarHealthSummarySnapshot(car.id)
